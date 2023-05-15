@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"time"
 
 	gormClause "gorm.io/gorm/clause"
 )
@@ -39,8 +40,6 @@ func parseFilter(expr gormClause.Expression, builder gormClause.Builder) (filter
 			field, operator := args[0], args[1]
 			if operator == "=" {
 				operator = "=="
-			} else {
-				log.Fatalf("not support operator %s for now ", operator)
 			}
 			filter = FilterObj{Field: field, Operator: operator, Value: e.Vars[idx]}
 		}
@@ -62,11 +61,17 @@ func (f Filter) Build(builder gormClause.Builder) {
 	var filterSlice []string
 	for _, ins := range filterList {
 		var sub string
-		switch ins.Value.(type) {
+		switch v := ins.Value.(type) {
 		case string:
-			sub = fmt.Sprintf("doc.%s %s '%s'", ins.Field, ins.Operator, ins.Value)
+			sub = fmt.Sprintf("doc.%s %s '%s'", ins.Field, ins.Operator, v)
 		case int:
-			sub = fmt.Sprintf("doc.%s %s %d", ins.Field, ins.Operator, ins.Value)
+			sub = fmt.Sprintf("doc.%s %s %d", ins.Field, ins.Operator, v)
+		case bool:
+			sub = fmt.Sprintf("doc.%s %s %t", ins.Field, ins.Operator, v)
+		case time.Time:
+			sub = fmt.Sprintf("DATE_TIMESTAMP(doc.%s) %s DATE_TIMESTAMP('%s')", ins.Field, ins.Operator, v.Format(time.RFC3339))
+		default:
+			log.Fatalf("not support operator %s for now ", ins.Operator)
 		}
 
 		filterSlice = append(filterSlice, sub)
