@@ -2,11 +2,10 @@ package clause
 
 import (
 	"fmt"
-	"log"
+	"github.com/sirupsen/logrus"
+	gormClause "gorm.io/gorm/clause"
 	"strings"
 	"time"
-
-	gormClause "gorm.io/gorm/clause"
 )
 
 type Filter struct {
@@ -64,6 +63,9 @@ func (f Filter) Build(builder gormClause.Builder) {
 		switch v := ins.Value.(type) {
 		case string:
 			sub = fmt.Sprintf("doc.%s %s '%s'", ins.Field, ins.Operator, v)
+		case []string:
+			valuesStr := fmt.Sprintf("['%s']", strings.Join(v, "', '"))
+			sub = fmt.Sprintf("doc.%s %s %s", ins.Field, ins.Operator, valuesStr)
 		case int:
 			sub = fmt.Sprintf("doc.%s %s %d", ins.Field, ins.Operator, v)
 		case bool:
@@ -71,10 +73,12 @@ func (f Filter) Build(builder gormClause.Builder) {
 		case time.Time:
 			sub = fmt.Sprintf("DATE_TIMESTAMP(doc.%s) %s DATE_TIMESTAMP('%s')", ins.Field, ins.Operator, v.Format(time.RFC3339))
 		default:
-			log.Fatalf("not support operator %s for now ", ins.Operator)
+			msg := fmt.Sprintf("not support operator %s for %T", ins.Operator, v)
+			logrus.Warn(msg)
 		}
-
-		filterSlice = append(filterSlice, sub)
+		if sub != "" {
+			filterSlice = append(filterSlice, sub)
+		}
 	}
 	sql := strings.Join(filterSlice, " AND ")
 	builder.WriteString(sql)

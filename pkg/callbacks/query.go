@@ -40,9 +40,10 @@ func BuildAQL(db *gorm.DB) string {
 	db.Statement.SQL.WriteString(sort)
 	returnPart := selectColumn(db.Statement.Selects)
 	db.Statement.SQL.WriteString(returnPart)
-	db.Logger.Info(context.TODO(), db.Statement.SQL.String())
+	sql := db.Statement.SQL.String()
+	db.Logger.Info(context.TODO(), sql)
 
-	return db.Statement.SQL.String()
+	return sql
 }
 
 func selectColumn(in []string) (result string) {

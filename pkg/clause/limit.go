@@ -1,6 +1,7 @@
 package clause
 
 import (
+	"fmt"
 	"strconv"
 
 	gormClause "gorm.io/gorm/clause"
@@ -16,16 +17,28 @@ func (limit Limit) Name() string {
 }
 
 func (limit Limit) Build(builder gormClause.Builder) {
-
-	if limit.Limit > 0 || limit.Offset > 0 {
+	//limit 2,5  offset2, limit5
+	if limit.Offset > 0 || limit.Limit > 0 {
 		builder.WriteString("LIMIT ")
-		if limit.Limit > 0 {
-			builder.WriteString(strconv.Itoa(limit.Limit))
-		} else {
-			builder.WriteString("250")
-		}
-		builder.WriteString(strconv.Itoa(limit.Offset))
 	}
+
+	if limit.Offset > 0 {
+		var offset string
+		if limit.Limit > 0 {
+			offset = fmt.Sprintf("%s, ", strconv.Itoa(limit.Offset))
+		} else {
+			offset = fmt.Sprintf("%s ", strconv.Itoa(limit.Offset))
+		}
+		builder.WriteString(offset)
+	}
+
+	if limit.Limit > 0 {
+		li := fmt.Sprintf("%s ", strconv.Itoa(limit.Limit))
+		builder.WriteString(li)
+	} else {
+		builder.WriteString("250 ")
+	}
+
 }
 
 func (limit Limit) MergeClause(clause *gormClause.Clause) {

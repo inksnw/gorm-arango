@@ -1,6 +1,7 @@
 package clause
 
 import (
+	"fmt"
 	"strings"
 
 	gormClause "gorm.io/gorm/clause"
@@ -24,10 +25,11 @@ func (sort Sort) Build(builder gormClause.Builder) {
 		if idx > 0 {
 			builder.WriteByte(',')
 		}
-
 		columnName := column.Column.Name
+
 		if columnName == gormClause.PrimaryKey || columnName == gormClause.CurrentTable || columnName == gormClause.Associations {
-			builder.WriteQuoted(column.Column)
+			key := fmt.Sprintf("doc.%s", columnName)
+			builder.WriteString(key)
 			if column.Desc {
 				builder.WriteString(" DESC")
 			}
@@ -37,8 +39,8 @@ func (sort Sort) Build(builder gormClause.Builder) {
 				if idy > 0 {
 					builder.WriteString(", ")
 				}
-
-				builder.WriteString(strings.TrimSpace(internalCol))
+				key := fmt.Sprintf("doc.%s", strings.TrimSpace(internalCol))
+				builder.WriteString(key)
 				if column.Desc {
 					builder.WriteString(" DESC")
 				}
