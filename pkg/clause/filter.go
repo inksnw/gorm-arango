@@ -2,8 +2,9 @@ package clause
 
 import (
 	"fmt"
-	"github.com/sirupsen/logrus"
+	"github.com/xwb1989/sqlparser"
 	gormClause "gorm.io/gorm/clause"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -16,70 +17,68 @@ func (f Filter) Name() string {
 	return "FILTER"
 }
 
-type FilterObj struct {
-	Field    string
-	Operator string
-	Value    any
+func sqlToAqlCondition(expr sqlparser.Expr) (sql string) {
+
+	switch sqlExpr := expr.(type) {
+	case *sqlparser.ComparisonExpr:
+		if sqlExpr.Operator == "=" {
+			sqlExpr.Operator = "=="
+		}
+		column := sqlparser.String(sqlExpr.Left)
+		value := sqlparser.String(sqlExpr.Right)
+		if _, err := time.Parse(time.RFC3339, strings.Trim(value, "'")); err == nil {
+			return fmt.Sprintf("DATE_TIMESTAMP(doc.%s) %s DATE_TIMESTAMP('%s')", column, sqlExpr.Operator, value)
+		}
+		if value == "true" || value == "false" {
+			return fmt.Sprintf("doc.%s %s %s", column, sqlExpr.Operator, value)
+		}
+		if _, err := strconv.Atoi(value); err == nil {
+			return fmt.Sprintf("doc.%s %s %s", column, sqlExpr.Operator, value)
+		}
+		return fmt.Sprintf("doc.%s %s '%s'", column, sqlExpr.Operator, value)
+	case *sqlparser.AndExpr:
+		return fmt.Sprintf("%s AND %s", sqlToAqlCondition(sqlExpr.Left), sqlToAqlCondition(sqlExpr.Right))
+	case *sqlparser.OrExpr:
+		return fmt.Sprintf("%s or %s", sqlToAqlCondition(sqlExpr.Left), sqlToAqlCondition(sqlExpr.Right))
+	case *sqlparser.ParenExpr:
+		return fmt.Sprintf("(%s)", sqlToAqlCondition(sqlExpr.Expr))
+	default:
+		return ""
+	}
 }
 
-func parseFilter(expr gormClause.Expression, builder gormClause.Builder) (filter FilterObj) {
+func parseFilter(expr gormClause.Expression, builder gormClause.Builder) (sql string) {
 
 	switch e := expr.(type) {
 	case gormClause.Eq:
 		key := e.Column.(string)
-		filter = FilterObj{Field: key, Operator: "==", Value: e.Value}
+		sql = fmt.Sprintf("doc.%s %s '%s'", key, "==", e.Value)
+		return sql
 
 	case gormClause.Expr:
-		conditions := strings.Split(strings.TrimSpace(e.SQL), "and")
-		for idx, condition := range conditions {
-			args := strings.Split(strings.TrimSpace(condition), " ")
-			if len(args) != 3 {
-				return
-			}
-			field, operator := args[0], args[1]
-			if operator == "=" {
-				operator = "=="
-			}
-			filter = FilterObj{Field: field, Operator: operator, Value: e.Vars[idx]}
-		}
+		where := strings.ReplaceAll(e.SQL, "?", "%v")
+		where = fmt.Sprintf(where, e.Vars...)
+		fakeSql := fmt.Sprintf("select * from fake where %s", where)
+		stmt, _ := sqlparser.Parse(fakeSql)
+		selectStmt, _ := stmt.(*sqlparser.Select)
+		sql = sqlToAqlCondition(selectStmt.Where.Expr)
+		return sql
+
 	default:
 		expr.Build(builder)
 	}
 
-	return filter
+	return sql
 }
 
 func (f Filter) Build(builder gormClause.Builder) {
-	var filterList []FilterObj
+	var sqlList []string
 	for _, i := range f.Exprs {
-		filter := parseFilter(i, builder)
-		if filter.Field != "" {
-			filterList = append(filterList, filter)
-		}
-	}
-	var filterSlice []string
-	for _, ins := range filterList {
-		var sub string
-		switch v := ins.Value.(type) {
-		case string:
-			sub = fmt.Sprintf("doc.%s %s '%s'", ins.Field, ins.Operator, v)
-		case []string:
-			valuesStr := fmt.Sprintf("['%s']", strings.Join(v, "', '"))
-			sub = fmt.Sprintf("doc.%s %s %s", ins.Field, ins.Operator, valuesStr)
-		case int:
-			sub = fmt.Sprintf("doc.%s %s %d", ins.Field, ins.Operator, v)
-		case bool:
-			sub = fmt.Sprintf("doc.%s %s %t", ins.Field, ins.Operator, v)
-		case time.Time:
-			sub = fmt.Sprintf("DATE_TIMESTAMP(doc.%s) %s DATE_TIMESTAMP('%s')", ins.Field, ins.Operator, v.Format(time.RFC3339))
-		default:
-			msg := fmt.Sprintf("not support operator %s for %T", ins.Operator, v)
-			logrus.Warn(msg)
-		}
+		sub := parseFilter(i, builder)
 		if sub != "" {
-			filterSlice = append(filterSlice, sub)
+			sqlList = append(sqlList, sub)
 		}
 	}
-	sql := strings.Join(filterSlice, " AND ")
+	sql := strings.Join(sqlList, " and ")
 	builder.WriteString(sql)
 }
