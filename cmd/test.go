@@ -44,18 +44,11 @@ func main() {
 	query.Where(where).Where("kind = ?", "Pod").Find(&resources2)
 	query.Where(where).Where("kind = ?", "Pod").Find(&resources3)
 	db.WithContext(context.TODO()).Model(&Resource{}).Where(where).Where("kind = ?", "Pod").Find(&resources4)
-	db.WithContext(context.TODO()).Model(&Resource{}).Where(where).Where("kind = ?", "Pod").Find(&resources5)
-	for _, i := range resources1 {
-		fmt.Println(string(i))
-	}
-	for _, i := range resources2 {
-		fmt.Println(string(i))
-	}
-	for _, i := range resources3 {
-		fmt.Println(string(i))
-	}
-	for _, i := range resources4 {
-		fmt.Println(i.Name)
-	}
+	db.WithContext(context.TODO()).Model(&Resource{}).Where(where).Where("kind1 = ? and kind2 = ? and kind3 = ?", 1, "Pod2", true).Find(&resources5)
+	fmt.Println(len(resources1))
+	fmt.Println(len(resources2))
+	fmt.Println(len(resources3))
+	fmt.Println(len(resources4))
+	fmt.Println(resources5)
 
 }

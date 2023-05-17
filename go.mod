@@ -6,6 +6,7 @@ require (
 	github.com/arangodb/go-driver v1.5.2
 	github.com/cenkalti/backoff/v4 v4.2.0
 	github.com/sirupsen/logrus v1.9.0
+	github.com/xwb1989/sqlparser v0.0.0-20180606152119-120387863bf2
 	gorm.io/gorm v1.24.7-0.20230306060331-85eaf9eeda11
 )
 
