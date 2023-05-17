@@ -32,30 +32,13 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	query := db.WithContext(context.TODO()).Model(&Resource{}).Select("object")
-	var resources1 [][]byte
-	var resources2 []json.RawMessage
-	var resources3 BytesList
 	var resources4 []Resource
-	var resources5 Resource
+	var resources5 []Resource
 
 	where := map[string]any{"cluster": "cluster-example", "namespace": "clusterpedia-system"}
-	query.Where(where).Where("kind = ?", "Pod").Find(&resources1)
-	query.Where(where).Where("kind = ?", "Pod").Find(&resources2)
-	query.Where(where).Where("kind = ?", "Pod").Find(&resources3)
-	db.WithContext(context.TODO()).Model(&Resource{}).Where(where).Where("kind = ?", "Pod").Find(&resources4)
-	db.WithContext(context.TODO()).Model(&Resource{}).Where(where).Where("kind = ?", "Pod").Find(&resources5)
-	for _, i := range resources1 {
-		fmt.Println(string(i))
-	}
-	for _, i := range resources2 {
-		fmt.Println(string(i))
-	}
-	for _, i := range resources3 {
-		fmt.Println(string(i))
-	}
-	for _, i := range resources4 {
-		fmt.Println(i.Name)
-	}
+	db.WithContext(context.TODO()).Model(&Resource{}).Where(where).Where("kind = ? and kind1 = ?", "Pod", true).Find(&resources4)
+	db.WithContext(context.TODO()).Model(&Resource{}).Where(where).Where("name IN ?", []string{"clusterpedia-controller-manager", "jinzhu 2"}).Find(&resources5)
+	fmt.Println(len(resources4))
+	fmt.Println(len(resources5))
 
 }

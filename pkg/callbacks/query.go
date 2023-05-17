@@ -6,7 +6,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
-	"strings"
 	"time"
 
 	"github.com/inksnw/gorm-arango/pkg/conn"
@@ -30,16 +29,21 @@ func Query(db *gorm.DB) {
 
 func BuildAQL(db *gorm.DB) string {
 
-	db.Statement.Build("ORDER BY")
-	sort := db.Statement.SQL.String()
-	sort = strings.ReplaceAll(sort, "SORT .", "")
+	db.Statement.Build("WHERE")
+	Where := db.Statement.SQL.String()
 	db.Statement.SQL.Reset()
-	firstPart := fmt.Sprintf("FOR doc IN %s  ", db.Statement.Table)
-	db.Statement.SQL.WriteString(firstPart)
-	db.Statement.Build("WHERE", "LIMIT")
-	db.Statement.SQL.WriteString(sort)
+	db.Statement.Build("LIMIT")
+	Limit := db.Statement.SQL.String()
+	db.Statement.SQL.Reset()
+	db.Statement.Build("ORDER BY")
+	order := db.Statement.SQL.String()
+	db.Statement.SQL.Reset()
 	returnPart := selectColumn(db.Statement.Selects)
-	db.Statement.SQL.WriteString(returnPart)
+
+	firstPart := fmt.Sprintf("for doc in %s filter ", db.Statement.Table)
+	all := fmt.Sprintf("%s %s %s %s %s", firstPart, Where, Limit, order, returnPart)
+	db.Statement.SQL.WriteString(all)
+
 	sql := db.Statement.SQL.String()
 	db.Logger.Info(context.TODO(), sql)
 

@@ -134,16 +134,24 @@ func (d Dialector) DefaultValueOf(field *schema.Field) gormClause.Expression {
 }
 
 func (d Dialector) BindVarTo(writer gormClause.Writer, stmt *gorm.Statement, v any) {
-	// TODO: Implement
-	// writer.WriteString(fmt.Sprintf("%v", v))
+	switch v.(type) {
+	case string:
+		writer.WriteString("'%v'")
+	case bool:
+		writer.WriteString("%t")
+	default:
+		writer.WriteString("%v")
+	}
 }
 
 func (d Dialector) QuoteTo(writer gormClause.Writer, str string) {
 	// TODO: Implement
+	//panic("Implement me")
 }
 
 func (d Dialector) Explain(sql string, vars ...any) string {
 	// TODO: Implement
+	//panic("Implement me")
 	return ""
 }
 
