@@ -17,8 +17,6 @@ type Resource struct {
 	CreatedAt time.Time
 	Object    json.RawMessage
 }
-type Bytes json.RawMessage
-type BytesList []Bytes
 
 func main() {
 	arangoConf := &arango.Config{

@@ -134,13 +134,24 @@ func (d Dialector) DefaultValueOf(field *schema.Field) gormClause.Expression {
 }
 
 func (d Dialector) BindVarTo(writer gormClause.Writer, stmt *gorm.Statement, v any) {
-	switch v.(type) {
+
+	switch ins := v.(type) {
 	case string:
-		writer.WriteString("'%v'")
+		value := fmt.Sprintf("'%v'", v)
+		writer.WriteString(value)
+	case time.Time:
+		value := fmt.Sprintf("'timestamp:%d'", ins.UnixMilli())
+		writer.WriteString(value)
 	case bool:
-		writer.WriteString("%t")
+		value := fmt.Sprintf("%t", v)
+		writer.WriteString(value)
+	case *gorm.DB:
+		stmt.Logger.Error(context.TODO(), "not support sub query")
+		writer.WriteString("")
+
 	default:
-		writer.WriteString("%v")
+		value := fmt.Sprintf("%v", v)
+		writer.WriteString(value)
 	}
 }
 

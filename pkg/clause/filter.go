@@ -1,6 +1,7 @@
 package clause
 
 import (
+	"context"
 	"fmt"
 	"github.com/xwb1989/sqlparser"
 	"gorm.io/gorm"
@@ -31,6 +32,14 @@ func sqlToAqlCondition(expr sqlparser.Expr) (sql string) {
 			sql = fmt.Sprintf("doc.%s %s %s", column, sqlExpr.Operator, values)
 			return sql
 		}
+
+		if strings.HasPrefix(values, "'timestamp:") {
+			values = strings.ReplaceAll(values, "'timestamp:", "")
+			values = strings.ReplaceAll(values, "'", "")
+			sql = fmt.Sprintf("DATE_TIMESTAMP(doc.%s) %s %s", column, sqlExpr.Operator, values)
+			return sql
+		}
+
 		return fmt.Sprintf("doc.%s %s %s", column, sqlExpr.Operator, values)
 	case *sqlparser.AndExpr:
 		return fmt.Sprintf("%s AND %s", sqlToAqlCondition(sqlExpr.Left), sqlToAqlCondition(sqlExpr.Right))
@@ -56,22 +65,11 @@ func parseFilter(expr gormClause.Expression, builder gormClause.Builder) (sql st
 		e.Build(builder)
 		where := stmt1.SQL.String()
 		stmt1.SQL.Reset()
-		var values []any
-		for _, i := range e.Vars {
-			switch s := i.(type) {
-			case []string:
-				for _, v := range s {
-					values = append(values, v)
-				}
-			default:
-				values = e.Vars
-			}
-		}
-		where = fmt.Sprintf(where, values...)
 		fakeSql := fmt.Sprintf("select * from fake where %s", where)
 		stmt, err := sqlparser.Parse(fakeSql)
 		if err != nil {
-			panic(err)
+			stmt1.Logger.Error(context.TODO(), err.Error(), where)
+			return sql
 		}
 		selectStmt, _ := stmt.(*sqlparser.Select)
 		sql = sqlToAqlCondition(selectStmt.Where.Expr)
