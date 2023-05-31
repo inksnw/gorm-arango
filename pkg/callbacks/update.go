@@ -57,12 +57,8 @@ func MetaInfo(db *gorm.DB, collection driver.Collection) (driver.DocumentMeta, e
 	if err != nil {
 		return driver.DocumentMeta{}, err
 	}
-
 	elemType := conn.NewInstanceOfSliceType(db.Statement.Dest)
 	r := reflect.New(elemType).Interface()
 	document, err := cursor.ReadDocument(db.Statement.Context, r)
-	if err != nil {
-		return driver.DocumentMeta{}, err
-	}
 	return document, err
 }

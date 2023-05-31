@@ -34,10 +34,7 @@ func (connPool *ConnPool) ExecContext(ctx context.Context, query string, args ..
 
 func (connPool *ConnPool) QueryContext(ctx context.Context, query string, args ...any) (*sql.Rows, error) {
 	db := args[0].(*gorm.DB)
-	//var mutex sync.Mutex
-	//mutex.Lock()
-	//defer mutex.Unlock()
-	_, err := QueryAll(ctx, connPool, query, "query", db)
+	_, err := QueryAll(ctx, query, "query", db)
 	return nil, err
 }
 
@@ -56,7 +53,9 @@ func CheckRaw(in any) (result bool) {
 	return elemElemType.Kind() == reflect.Uint8
 }
 
-func QueryAll(ctx context.Context, connPool *ConnPool, query string, action string, db *gorm.DB) (metaSlice driver.DocumentMetaSlice, err error) {
+func QueryAll(ctx context.Context, query string, action string, db *gorm.DB) (metaSlice driver.DocumentMetaSlice, err error) {
+	connPool := db.Statement.ConnPool.(*ConnPool)
+
 	cursor, err := connPool.Database.Query(ctx, query, nil)
 	if err != nil {
 		return nil, err

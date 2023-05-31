@@ -18,7 +18,7 @@ func Delete(db *gorm.DB) {
 	}
 	aql := BuildAQL(db)
 
-	metas, err := conn.QueryAll(context.TODO(), connection, aql, "delete", db)
+	metas, err := conn.QueryAll(context.TODO(), aql, "delete", db)
 	_, _, err = collection.RemoveDocuments(db.Statement.Context, metas.Keys())
 	if err != nil {
 		db.AddError(err)

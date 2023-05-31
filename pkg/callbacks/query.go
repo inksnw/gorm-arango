@@ -21,11 +21,15 @@ func Query(db *gorm.DB) {
 		db.AddError(err)
 		return
 	}
-	err = scan(db)
-	if err != nil {
-		db.AddError(err)
-		return
+	isSlice := db.Statement.ReflectValue.Kind() == reflect.Slice || db.Statement.ReflectValue.Kind() == reflect.Array
+	if isSlice {
+		err = scan(db)
+		if err != nil {
+			db.AddError(err)
+			return
+		}
 	}
+
 }
 
 func BuildAQL(db *gorm.DB) string {
@@ -89,44 +93,46 @@ func checkElementType(t reflect.Type) bool {
 
 // This method is based on gorm.Scan() method.
 func scan(db *gorm.DB) error {
-	isSlice := db.Statement.ReflectValue.Kind() == reflect.Slice || db.Statement.ReflectValue.Kind() == reflect.Array
-	if !isSlice {
-		return nil
-	}
+
 	elemType := conn.NewInstanceOfSliceType(db.Statement.Dest)
 	list := db.Statement.Dest.([]any)
 
-	for _, row := range list {
-		db.RowsAffected++
-		if checkElementType(elemType) {
+	switch elemType.Kind() {
+	case reflect.Struct, reflect.Map:
+		for _, row := range list {
+			data, err := any2Map(row)
+			if err != nil {
+				return err
+			}
+			reflectValueType := db.Statement.ReflectValue.Type().Elem()
+			elem := reflect.New(reflectValueType)
+			for _, field := range db.Statement.Schema.Fields {
+				value, err := json.Marshal(data[field.Name])
+				if err != nil {
+					return err
+				}
+				var v any
+				if field.DataType == schema.Time {
+					v = time.Unix(int64(binary.BigEndian.Uint64(value)), 0)
+				} else {
+					v = value
+				}
+				err = field.Set(context.TODO(), elem, v)
+				if err != nil {
+					return err
+				}
+			}
+			db.Statement.ReflectValue.Set(reflect.Append(db.Statement.ReflectValue, elem.Elem()))
+		}
+		db.RowsAffected = int64(len(list))
+		return nil
+	default:
+		for _, row := range list {
 			elem := reflect.ValueOf(row)
 			db.Statement.ReflectValue.Set(reflect.Append(db.Statement.ReflectValue, elem.Elem()))
-			continue
 		}
-		data, err := any2Map(row)
-		if err != nil {
-			return err
-		}
-		reflectValueType := db.Statement.ReflectValue.Type().Elem()
-		elem := reflect.New(reflectValueType)
-		for _, field := range db.Statement.Schema.Fields {
-			value, err := json.Marshal(data[field.Name])
-			if err != nil {
-				return err
-			}
-			var v any
-			if field.DataType == schema.Time {
-				v = time.Unix(int64(binary.BigEndian.Uint64(value)), 0)
-			} else {
-				v = value
-			}
-			err = field.Set(context.TODO(), elem, v)
-			if err != nil {
-				return err
-			}
-		}
-		db.Statement.ReflectValue.Set(reflect.Append(db.Statement.ReflectValue, elem.Elem()))
+		db.RowsAffected = int64(len(list))
+		return nil
 	}
-	db.RowsAffected = int64(len(list))
-	return nil
+
 }
