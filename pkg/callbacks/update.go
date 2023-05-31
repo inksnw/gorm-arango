@@ -51,14 +51,15 @@ func Update(db *gorm.DB) {
 }
 
 func MetaInfo(db *gorm.DB, collection driver.Collection) (driver.DocumentMeta, error) {
-	connection := db.Statement.ConnPool.(*conn.ConnPool)
 	aql := BuildAQL(db)
 	cursor, err := collection.Database().Query(db.Statement.Context, aql, nil)
 	defer cursor.Close()
 	if err != nil {
 		return driver.DocumentMeta{}, err
 	}
-	r := reflect.New(connection.Return.ElemType).Interface()
+
+	elemType := conn.NewInstanceOfSliceType(db.Statement.Dest)
+	r := reflect.New(elemType).Interface()
 	document, err := cursor.ReadDocument(db.Statement.Context, r)
 	if err != nil {
 		return driver.DocumentMeta{}, err

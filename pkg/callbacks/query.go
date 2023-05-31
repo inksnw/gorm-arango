@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"reflect"
+
 	"time"
 
 	"github.com/inksnw/gorm-arango/pkg/conn"
@@ -77,24 +78,27 @@ func any2Map(in any) (map[string]any, error) {
 	err = json.Unmarshal(data, &mapModel)
 	return mapModel, err
 }
+func checkElementType(t reflect.Type) bool {
+	switch t.Kind() {
+	case reflect.Struct, reflect.Map:
+		return false
+	default:
+		return true
+	}
+}
 
 // This method is based on gorm.Scan() method.
 func scan(db *gorm.DB) error {
-	isSlice := db.Statement.ConnPool.(*conn.ConnPool).Return.IsSlice
+	isSlice := db.Statement.ReflectValue.Kind() == reflect.Slice || db.Statement.ReflectValue.Kind() == reflect.Array
 	if !isSlice {
 		return nil
 	}
-	elemType := db.Statement.ConnPool.(*conn.ConnPool).Return.ElemType
-	model := reflect.New(elemType).Interface()
-	mapModel, err := any2Map(model)
-	if err != nil {
-		return err
-	}
+	elemType := conn.NewInstanceOfSliceType(db.Statement.Dest)
+	list := db.Statement.Dest.([]any)
 
-	list := db.Statement.ConnPool.(*conn.ConnPool).Return.Dest.([]any)
 	for _, row := range list {
 		db.RowsAffected++
-		if len(mapModel) == 0 {
+		if checkElementType(elemType) {
 			elem := reflect.ValueOf(row)
 			db.Statement.ReflectValue.Set(reflect.Append(db.Statement.ReflectValue, elem.Elem()))
 			continue
