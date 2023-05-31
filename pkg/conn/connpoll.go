@@ -12,16 +12,9 @@ import (
 	driver "github.com/arangodb/go-driver"
 )
 
-type ConnPoolReturn struct {
-	Dest     any
-	ElemType reflect.Type
-	IsSlice  bool
-}
-
 type ConnPool struct {
 	Connection driver.Connection
 	Database   driver.Database
-	Return     ConnPoolReturn
 }
 
 func (connPool *ConnPool) GetDBConn() (*sql.DB, error) {
@@ -44,14 +37,6 @@ func (connPool *ConnPool) QueryContext(ctx context.Context, query string, args .
 	//var mutex sync.Mutex
 	//mutex.Lock()
 	//defer mutex.Unlock()
-	elemType := newInstanceOfSliceType(db.Statement.Dest)
-	isSlice := db.Statement.ReflectValue.Kind() == reflect.Slice || db.Statement.ReflectValue.Kind() == reflect.Array
-	cp := ConnPoolReturn{
-		Dest:     db.Statement.Dest,
-		ElemType: elemType,
-		IsSlice:  isSlice,
-	}
-	db.Statement.ConnPool.(*ConnPool).Return = cp
 	_, err := QueryAll(ctx, connPool, query, "query", db)
 	return nil, err
 }
@@ -77,8 +62,10 @@ func QueryAll(ctx context.Context, connPool *ConnPool, query string, action stri
 		return nil, err
 	}
 	defer cursor.Close()
-	if !connPool.Return.IsSlice && action != "delete" {
-		meta, err := cursor.ReadDocument(ctx, connPool.Return.Dest)
+	isSlice := db.Statement.ReflectValue.Kind() == reflect.Slice || db.Statement.ReflectValue.Kind() == reflect.Array
+
+	if !isSlice && action != "delete" {
+		meta, err := cursor.ReadDocument(ctx, db.Statement.Dest)
 		if driver.IsNoMoreDocuments(err) {
 			return nil, errors.New("document not found")
 		}
@@ -88,7 +75,8 @@ func QueryAll(ctx context.Context, connPool *ConnPool, query string, action stri
 
 	results := make([]any, 0)
 	for {
-		r := reflect.New(connPool.Return.ElemType).Interface()
+		elemType := NewInstanceOfSliceType(db.Statement.Dest)
+		r := reflect.New(elemType).Interface()
 		var meta driver.DocumentMeta
 		if CheckRaw(r) {
 			rawMessage := json.RawMessage{}
@@ -118,16 +106,16 @@ func QueryAll(ctx context.Context, connPool *ConnPool, query string, action stri
 		metaSlice = append(metaSlice, meta)
 	}
 
-	connPool.Return.Dest = results
+	db.Statement.Dest = results
 	db.RowsAffected = int64(len(results))
 
 	return metaSlice, nil
 }
 
-func newInstanceOfSliceType(arr any) reflect.Type {
+func NewInstanceOfSliceType(arr any) reflect.Type {
 	val := reflect.ValueOf(arr)
 	if val.Kind() == reflect.Ptr {
-		return newInstanceOfSliceType(val.Elem().Interface())
+		return NewInstanceOfSliceType(val.Elem().Interface())
 	}
 	if val.Kind() == reflect.Struct {
 		return reflect.TypeOf(arr)

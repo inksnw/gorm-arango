@@ -6,12 +6,7 @@ import (
 )
 
 var (
-	ErrDatabaseConnectionFailed = errors.New("ArangoDB database connection not initialized")
-
-	ErrMethodNotImplemented = func(entity any) error {
-		return fmt.Errorf("method scan not implemented for entity %v.", entity)
-	}
-
+	ErrDatabaseConnectionFailed                 = errors.New("ArangoDB database connection not initialized")
 	ErrOpeningDatabaseConnectionFailed          = errors.New("ArangoDB opening database connection failed")
 	ErrOpeningDatabaseConnectionFailedWithRetry = func(retry string) error {
 		return fmt.Errorf("%s. %s", ErrOpeningDatabaseConnectionFailed.Error(), retry)

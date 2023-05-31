@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	arango "github.com/inksnw/gorm-arango"
+	"gorm.io/datatypes"
 	"gorm.io/gorm"
 	"gorm.io/gorm/logger"
 	"time"
@@ -31,12 +32,24 @@ func main() {
 		panic(err)
 	}
 	var resources4 []Resource
-	var resources5 []Resource
+	var resources5 []string
+	var resources6 []json.RawMessage
+	type Bytes datatypes.JSON
+	type BytesList []Bytes
+
+	resources7 := &BytesList{}
 
 	where := map[string]any{"cluster": "cluster-example", "namespace": "clusterpedia-system"}
-	db.WithContext(context.TODO()).Model(&Resource{}).Where(where).Where("kind = ? and kind1 = ?", "Pod", true).Find(&resources4)
-	db.WithContext(context.TODO()).Model(&Resource{}).Where(where).Where("name IN ?", []string{"clusterpedia-controller-manager", "jinzhu 2"}).Find(&resources5)
-	fmt.Println(len(resources4))
-	fmt.Println(len(resources5))
+	db.WithContext(context.TODO()).Model(&Resource{}).Select("uid").Where(where).Where("kind = ? ", "Pod").Find(&resources5)
+	for _, i := range resources5 {
+		fmt.Println(i)
+	}
+	db.WithContext(context.TODO()).Model(&Resource{}).Where(where).Where("kind = ? ", "Pod").Find(&resources4)
+	for _, i := range resources5 {
+		fmt.Println(i)
+	}
+	db.WithContext(context.TODO()).Model(&Resource{}).Select("object").Where(where).Where("kind = ? ", "Pod").Find(&resources6)
+	fmt.Println(len(resources6))
+	db.WithContext(context.TODO()).Model(&Resource{}).Select("object").Where(where).Where("kind = ? ", "Pod").Find(&resources7)
 
 }

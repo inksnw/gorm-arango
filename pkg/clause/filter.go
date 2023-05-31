@@ -61,7 +61,7 @@ func parseFilter(expr gormClause.Expression, builder gormClause.Builder) (sql st
 		sql = fmt.Sprintf("doc.%s %s '%s'", key, "==", e.Value)
 		return sql
 
-	case gormClause.Expr:
+	case gormClause.Expr, gormClause.OrConditions:
 		e.Build(builder)
 		where := stmt1.SQL.String()
 		stmt1.SQL.Reset()
@@ -81,13 +81,65 @@ func parseFilter(expr gormClause.Expression, builder gormClause.Builder) (sql st
 }
 
 func (f Filter) Build(builder gormClause.Builder) {
-	var sqlList []string
+	var sqlList []oneSql
 	for _, i := range f.Exprs {
 		sub := parseFilter(i, builder)
 		if sub != "" {
-			sqlList = append(sqlList, sub)
+			var opera string
+			switch i.(type) {
+			case gormClause.Eq, gormClause.Expr:
+				opera = " and "
+			case gormClause.OrConditions:
+				opera = " or "
+			}
+			ins := oneSql{
+				sql:   sub,
+				opera: opera,
+			}
+			sqlList = append(sqlList, ins)
 		}
 	}
-	sql := strings.Join(sqlList, " and ")
+	sql := stitchingSQL(sqlList)
 	builder.WriteString(sql)
+}
+
+type oneSql struct {
+	sql   string
+	opera string
+}
+
+func stitchingSQL(sqlList []oneSql) string {
+	var sql string
+	inOrGroup := false
+
+	for index, i := range sqlList {
+		isLast := index == len(sqlList)-1
+		isNextOr := !isLast && sqlList[index+1].opera == " or "
+
+		if i.opera == " or " && (inOrGroup || isNextOr) {
+			if !inOrGroup {
+				sql += " ("
+				inOrGroup = true
+			}
+			sql += i.sql
+			if isNextOr {
+				sql += i.opera
+				continue
+			}
+			sql += ")"
+			inOrGroup = false
+			if !isLast {
+				sql += sqlList[index+1].opera
+			}
+			continue
+		}
+
+		if !inOrGroup && !(i.opera == " or " && !isNextOr) {
+			sql += i.sql
+			if !isLast {
+				sql += i.opera
+			}
+		}
+	}
+	return sql
 }
