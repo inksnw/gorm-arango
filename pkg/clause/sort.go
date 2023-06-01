@@ -13,10 +13,15 @@ type Sort struct {
 }
 
 func (sort Sort) Name() string {
-	return "SORT"
+	return ""
 }
 
 func (sort Sort) Build(builder gormClause.Builder) {
+	if len(sort.Columns) == 1 && sort.Columns[0].Column.Name == gormClause.PrimaryKey {
+		return
+	}
+	builder.WriteString(" SORT ")
+
 	if sort.Expression != nil {
 		sort.Expression.Build(builder)
 		return
